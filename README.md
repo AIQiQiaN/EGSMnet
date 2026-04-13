@@ -1,10 +1,8 @@
-# MPA-Det
+# EGSMnet
 
 # Introduce
   
-This is the official code for the paper MPA-Det: Multi-path Aggregation-Based Object Detection Network.
-
-This project is built based on mmdetection 3.1 and mmcv 2.0.1.
+This is the official code for the paper EGSMnet.
 
 # Environment
 
