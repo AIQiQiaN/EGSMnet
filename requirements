@@ -1,0 +1,9 @@
+pip install matplotlib==3.10.8
+pip install tqdm==4.67.1
+pip install timm==1.0.22
+pip install einops==0.8.1
+pip install efficientnet-pytorch==0.7.1
+pip install dill==0.4.0
+pip install PyWavelets==1.9.0
+pip install scipy==1.16.3
+pip install pandas==2.3.3
