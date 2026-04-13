@@ -11,67 +11,66 @@ scales:
 # P1+P2 Ultra-Lightweight: Adaptive channels
 backbone:
   # [from, repeats, module, args]
-  - [-1, 1, Conv, [64, 3, 2]]           # 0-P1/2
-  - [-1, 1, EGConv, [128, 3, 2]]        # 1-P2/4
-  - [-1, 3, C2f_gConv, [128, True]]           # 2-P2/4 feature
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
+  - [-1, 1, EGConv, [128, 3, 2]] # 1-P2/4
+  - [-1, 3, C2f_gConv, [128, True]] # 2-P2/4 feature
 
-  - [-1, 1, EGConv, [256, 3, 2]]        # 3-P3/8
-  - [-1, 6, GhostC2f, [256, True]]           # 4-P3/8 feature
-  - [-1, 1, SAGE, [8, 0.7]]             # 5-P3/8 attention
+  - [-1, 1, EGConv, [256, 3, 2]] # 3-P3/8
+  - [-1, 6, GhostC2f, [256, True]] # 4-P3/8 feature
+  - [-1, 1, SAGE, [8, 0.7]] # 5-P3/8 attention
 
-  - [-1, 1, EGConv, [512, 3, 2]]        # 6-P4/16
-  - [-1, 6, GhostC2f, [512, True]]           # 7-P4/16 feature
+  - [-1, 1, EGConv, [512, 3, 2]] # 6-P4/16
+  - [-1, 6, GhostC2f, [512, True]] # 7-P4/16 feature
 
-  - [-1, 1, EGConv, [1024, 3, 2]]       # 8-P5/32
-  - [-1, 3, C2f_gConv, [1024, True]]          # 9-P5/32 feature
-  - [-1, 1, SPPF, [1024, 5]]            # 10-P5/32 enhanced
+  - [-1, 1, EGConv, [1024, 3, 2]] # 8-P5/32
+  - [-1, 3, C2f_gConv, [1024, True]] # 9-P5/32 feature
+  - [-1, 1, SPPF, [1024, 5]] # 10-P5/32 enhanced
 
 head:
   # ============ FPN 上采样路径 ============
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 11: P5→P4
-  - [[-1, 7], 1, Concat, [1]]                   # 12: cat backbone P4
-  - [-1, 3, C2f_gConv, [512]]                         # 13: P4/16 fused
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 11: P5→P4
+  - [[-1, 7], 1, Concat, [1]] # 12: cat backbone P4
+  - [-1, 3, C2f_gConv, [512]] # 13: P4/16 fused
 
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 14: P4→P3
-  - [[-1, 5], 1, Concat, [1]]                   # 15: cat backbone P3
-  - [-1, 3, C2f_gConv, [256]]                         # 16: P3/8 fused
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 14: P4→P3
+  - [[-1, 5], 1, Concat, [1]] # 15: cat backbone P3
+  - [-1, 3, C2f_gConv, [256]] # 16: P3/8 fused
 
-  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 17: P3→P2
-  - [[-1, 2], 1, Concat, [1]]                   # 18: cat backbone P2
-  - [-1, 3, C2f_gConv, [128]]                         # 19: P2/4 fused
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]] # 17: P3→P2
+  - [[-1, 2], 1, Concat, [1]] # 18: cat backbone P2
+  - [-1, 3, C2f_gConv, [128]] # 19: P2/4 fused
 
   # ============ P1轻量分支（32通道）============
-  - [0, 1, Conv, [32, 1, 1]]                    # 20: P1 ultra-light (64→32)
-  - [-1, 1, EGConv, [32, 3, 2]]                 # 21: P1→P2 scale
-  - [-1, 1, EGConv, [32, 3, 2]]                 # 22: P1→P3 scale
+  - [0, 1, Conv, [32, 1, 1]] # 20: P1 ultra-light (64→32)
+  - [-1, 1, EGConv, [32, 3, 2]] # 21: P1→P2 scale
+  - [-1, 1, EGConv, [32, 3, 2]] # 22: P1→P3 scale
 
   # ============ P2轻量分支（96通道）============
-  - [2, 1, Conv, [96, 1, 1]]                    # 23: P2 reduced (128→96)
-  - [-1, 1, EGConv, [96, 3, 2]]                 # 24: P2→P3 scale
-  - [-1, 1, EGConv, [96, 3, 2]]                 # 25: P2→P4 scale
-  - [-1, 1, EGConv, [96, 3, 2]]                 # 26: P2→P5 scale
+  - [2, 1, Conv, [96, 1, 1]] # 23: P2 reduced (128→96)
+  - [-1, 1, EGConv, [96, 3, 2]] # 24: P2→P3 scale
+  - [-1, 1, EGConv, [96, 3, 2]] # 25: P2→P4 scale
+  - [-1, 1, EGConv, [96, 3, 2]] # 26: P2→P5 scale
 
   # ============ PAN 自适应注入 ============
 
   # Stage 1: P3融合 (P1+P2，轻量通道)
-  - [19, 1, EGConv, [128, 3, 2]]                # 27: FPN-P2 downsample
-  - [[-1, 16, 22, 24], 1, Concat, [1]]          # 28: cat(PAN-P2, FPN-P3, P1, P2) [128+256+32+96=512]
-  - [-1, 3, C2f_gConv, [256]]                         # 29: P3/8 final
+  - [19, 1, EGConv, [128, 3, 2]] # 27: FPN-P2 downsample
+  - [[-1, 16, 22, 24], 1, Concat, [1]] # 28: cat(PAN-P2, FPN-P3, P1, P2) [128+256+32+96=512]
+  - [-1, 3, C2f_gConv, [256]] # 29: P3/8 final
 
   # Stage 2: P4融合 (仅P2)
-  - [-1, 1, EGConv, [256, 3, 2]]                # 30: P3→P4 downsample
-  - [[-1, 13, 25], 1, Concat, [1]]              # 31: cat(PAN-P3, FPN-P4, P2) [256+512+96=864]
-  - [-1, 3, C2f_gConv, [512]]                         # 32: P4/16 final
+  - [-1, 1, EGConv, [256, 3, 2]] # 30: P3→P4 downsample
+  - [[-1, 13, 25], 1, Concat, [1]] # 31: cat(PAN-P3, FPN-P4, P2) [256+512+96=864]
+  - [-1, 3, C2f_gConv, [512]] # 32: P4/16 final
 
   # Stage 3: P5融合 (仅P2)
-  - [-1, 1, EGConv, [512, 3, 2]]                # 33: P4→P5 downsample
-  - [[-1, 10, 26], 1, Concat, [1]]              # 34: cat(PAN-P4, FPN-P5, P2) [512+1024+96=1632]
-  - [-1, 3, C2f_gConv, [1024]]                        # 35: P5/32 final
+  - [-1, 1, EGConv, [512, 3, 2]] # 33: P4→P5 downsample
+  - [[-1, 10, 26], 1, Concat, [1]] # 34: cat(PAN-P4, FPN-P5, P2) [512+1024+96=1632]
+  - [-1, 3, C2f_gConv, [1024]] # 35: P5/32 final
 
   # ============ Detect Head ============
-  - [[19, 29, 32, 35], 1, Detect_DyHead, [nc, 128, 1]]  # 36: Detect
+  - [[19, 29, 32, 35], 1, Detect_DyHead, [nc, 128, 1]] # 36: Detect
 ##############################超轻量版：自适应通道P1+P2######################
-
 
 #Visdrone
 #Ultralytics YOLOv8.2.50 🚀 Python-3.11.10 torch-2.4.0+cu121 CUDA:0 (NVIDIA GeForce RTX 4090, 48646MiB)
@@ -91,8 +90,6 @@ head:
 #Speed: 0.1ms preprocess, 4.1ms inference, 0.0ms loss, 8.7ms postprocess per image
 #Results saved to runs/train/exp_EGConv_Vis_P1+P2_In
 
-
-
 #Hit-uav
 #Validating runs/train/exp_EGConv_Hit_P1+P2_In_300_GhostC2f/weights/best.pt...
 #Ultralytics YOLOv8.2.50 🚀 Python-3.11.10 torch-2.4.0+cu121 CUDA:0 (NVIDIA GeForce RTX 4090, 48646MiB)
@@ -105,6 +102,4 @@ head:
 #Speed: 0.1ms preprocess, 9.1ms inference, 0.0ms loss, 0.6ms postprocess per image
 #Results saved to runs/train/exp_EGConv_Hit_P1+P2_In_300_GhostC2f
 #进程已结束,退出代码-1
-
-
 

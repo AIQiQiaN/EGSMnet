@@ -7,9 +7,7 @@ class GhostC2f(nn.Module):
         self.cv1 = GhostConv(c1, 2 * self.c, 1, 1)
 
         # Bottleneck序列
-        self.m = nn.ModuleList(
-            GhostBottleneck(self.c, self.c) for _ in range(n)
-        )
+        self.m = nn.ModuleList(GhostBottleneck(self.c, self.c) for _ in range(n))
 
         # 输出卷积：标准Conv用于特征融合
         self.cv2 = Conv(2 * self.c + n * self.c, c2, 1)
