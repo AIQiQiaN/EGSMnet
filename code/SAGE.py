@@ -1,5 +1,4 @@
 class SAGE(nn.Module):
-
     def __init__(self, c1, num_heads=8, topk_ratio=0.7, e_lambda=1e-4, dropout=0.0):
         super().__init__()
         assert c1 % num_heads == 0, f"c1={c1} must be divisible by num_heads={num_heads}"
@@ -11,11 +10,7 @@ class SAGE(nn.Module):
 
         self.qkv = nn.Linear(c1, c1 * 3, bias=False)
         self.proj = nn.Linear(c1, c1)
-        self.router = nn.Sequential(
-            nn.Linear(c1, c1 // 4),
-            nn.ReLU(inplace=True),
-            nn.Linear(c1 // 4, num_heads)
-        )
+        self.router = nn.Sequential(nn.Linear(c1, c1 // 4), nn.ReLU(inplace=True), nn.Linear(c1 // 4, num_heads))
         self.norm = nn.LayerNorm(c1)
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
 
@@ -62,7 +57,7 @@ class SAGE(nn.Module):
         v_selected = torch.gather(v, 2, idx_exp)
 
         # Q保持完整，与选中的K计算注意力
-        attn_scores = torch.matmul(q, k_selected.transpose(-2, -1)) * (self.dim_head ** -0.5)
+        attn_scores = torch.matmul(q, k_selected.transpose(-2, -1)) * (self.dim_head**-0.5)
         # attn_scores: (B, num_heads, N, topk)
 
         attn = torch.softmax(attn_scores, dim=-1)

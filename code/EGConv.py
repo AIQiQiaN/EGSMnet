@@ -1,12 +1,9 @@
 class EASA(nn.Module):
-    """
-    改进1: 降低下采样率
-    改进2: 使用双线性插值
-    改进3: 添加最小尺寸保护
+    """改进1: 降低下采样率 改进2: 使用双线性插值 改进3: 添加最小尺寸保护.
     """
 
     def __init__(self, dim=36, down_scale=1):  #  添加可配置参数
-        super(EASA, self).__init__()
+        super().__init__()
         self.linear_1 = nn.Conv2d(dim, dim, 1, 1, 0)
         self.linear_2 = nn.Conv2d(dim, dim, 1, 1, 0)
         self.dw_conv = nn.Conv2d(dim, dim, 3, 1, 1, groups=dim)
@@ -16,28 +13,29 @@ class EASA(nn.Module):
         self.belt = nn.Parameter(torch.zeros((1, dim, 1, 1)))
 
     def forward(self, X):
-        b, c, h, w = X.shape
+        _b, _c, h, w = X.shape
 
         #  改进：设置最小下采样尺寸为8
         down_h = max(8, h // self.down_scale)  # 原本是 max(1, ...)
         down_w = max(8, w // self.down_scale)
 
-        pooled = F.adaptive_max_pool2d(X, (down_h, down_w))  #最大池化
+        pooled = F.adaptive_max_pool2d(X, (down_h, down_w))  # 最大池化
         x_s = self.dw_conv(pooled)
         x_v = torch.var(X, dim=(-2, -1), keepdim=True)
         Temp = x_s * self.alpha + x_v * self.belt
 
         # 改进：使用双线性插值替代最近邻
-        attn = F.interpolate(self.gelu(self.linear_1(Temp)),
-                             size=(h, w),
-                             mode='bilinear',  # 从 'nearest' 改为 'bilinear'
-                             align_corners=False)
+        attn = F.interpolate(
+            self.gelu(self.linear_1(Temp)),
+            size=(h, w),
+            mode="bilinear",  # 从 'nearest' 改为 'bilinear'
+            align_corners=False,
+        )
 
         x_l = X * attn
         out = self.linear_2(x_l) + X
 
         return out
-
 
 
 class EGConv(nn.Module):
