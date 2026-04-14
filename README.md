@@ -2,7 +2,7 @@
 
 # Introduce
   
-This is the official code for the paper EGSMnet.
+The code in this repository directly corresponds to the manuscript submitted to The Visual Computer entitled “EGSMnet: Adaptive Feature Enhancement Framework for Lightweight Small Object Detection in UAV Aerial Imagery”. Readers are kindly requested to cite this manuscript.
 
 # Environment
 
