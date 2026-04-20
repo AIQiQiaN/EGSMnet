@@ -32,4 +32,10 @@ cd EGSMnet
 # 2. 安装依赖
 pip install -r requirements.txt
 
+# 可见光推理
+python detect.py --weights runs/train/best_vis.pt --source test_graph/ --imgsz 640 --conf 0.25
+
+# 红外推理
+python detect.py --weights runs/train/best_Hit.pt --source test_graph/ --imgsz 640 --conf 0.25
+
 
