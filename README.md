@@ -19,10 +19,17 @@ The link to VisDrone2019: https://github.com/VisDrone/VisDrone-Dataset.
 
 The link to Hit-UAV: https://github.com/suojjiashun/HIT-UAV-Infrared-Thermal-Dataset.
 
-# Examples
+📊 Experimental Results
 
-![Detection results in VisDrone2019](./exm/Vis.png)
-<center><p>Detection results in VisDrone2019</p></center>
+VisDrone2019: 41.6% mAP@50 / 24.8% mAP@50-95 (+10.5 / +7.0 vs YOLOv8-n)
+HIT-UAV: 95.1% mAP@50 / 61.5% mAP@50-95
+The model size is only 1/3 of YOLOv8-n, with significantly reduced computation, suitable for real-time edge deployment
 
-![Detection results in Hit-UAV](./examples/Hit.png)
-<center><p>Detection results in Hit-UAV</p></center>
+# 1. 克隆仓库
+git clone https://github.com/AIQiQiaN/EGSMnet.git
+cd EGSMnet
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+
