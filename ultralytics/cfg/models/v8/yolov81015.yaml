@@ -1,0 +1,57 @@
+##############################消融实验：标准卷积+P2层+动态检测头######################
+# Parameters
+nc: 80
+scales:
+  n: [0.33, 0.25, 1024]
+  s: [0.33, 0.50, 1024]
+  m: [0.67, 0.75, 768]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.25, 512]
+
+# Standard Conv with P2 layer and Dynamic Head
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]           # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]          # 1-P2/4
+  - [-1, 3, C2f_gConv, [128, True]]     # 2-P2/4 feature
+
+  - [-1, 1, Conv, [256, 3, 2]]          # 3-P3/8
+  - [-1, 6, GhostC2f, [256, True]]      # 4-P3/8 feature
+  # SAGE已删除
+
+  - [-1, 1, Conv, [512, 3, 2]]          # 5-P4/16
+  - [-1, 6, GhostC2f, [512, True]]      # 6-P4/16 feature
+
+  - [-1, 1, Conv, [1024, 3, 2]]         # 7-P5/32
+  - [-1, 3, C2f_gConv, [1024, True]]    # 8-P5/32 feature
+  - [-1, 1, SPPF, [1024, 5]]            # 9-P5/32 enhanced
+
+head:
+  # ============ FPN 上采样路径 ============
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 10: P5→P4
+  - [[-1, 6], 1, Concat, [1]]                   # 11: cat backbone P4
+  - [-1, 3, C2f_gConv, [512]]                   # 12: P4/16 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 13: P4→P3
+  - [[-1, 4], 1, Concat, [1]]                   # 14: cat backbone P3
+  - [-1, 3, C2f_gConv, [256]]                   # 15: P3/8 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 16: P3→P2
+  - [[-1, 2], 1, Concat, [1]]                   # 17: cat backbone P2
+  - [-1, 3, C2f_gConv, [128]]                   # 18: P2/4 fused
+
+  # ============ PAN 下采样路径（标准结构）============
+  - [-1, 1, Conv, [128, 3, 2]]                  # 19: P2→P3 downsample
+  - [[-1, 15], 1, Concat, [1]]                  # 20: cat FPN-P3
+  - [-1, 3, C2f_gConv, [256]]                   # 21: P3/8 final
+
+  - [-1, 1, Conv, [256, 3, 2]]                  # 22: P3→P4 downsample
+  - [[-1, 12], 1, Concat, [1]]                  # 23: cat FPN-P4
+  - [-1, 3, C2f_gConv, [512]]                   # 24: P4/16 final
+
+  - [-1, 1, Conv, [512, 3, 2]]                  # 25: P4→P5 downsample
+  - [[-1, 9], 1, Concat, [1]]                   # 26: cat FPN-P5
+  - [-1, 3, C2f_gConv, [1024]]                  # 27: P5/32 final
+
+  # ============ Detect Head（动态检测头）============
+  - [[18, 21, 24, 27], 1, Detect_DyHead, [nc, 128, 1]]  # 28: DyHead Detect (P2, P3, P4, P5)

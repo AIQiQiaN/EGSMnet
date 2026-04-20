@@ -1,0 +1,66 @@
+# ============================================================
+# PGD-YOLOv11 — 单流 RGB-IR 融合目标检测 (YOLOv11 基线)
+# 输入通道: 6 (RGB 0-2 + IR 3-5)
+# 自定义模块: InputProxy, ChannelSplit, ModalityPromptInjection,
+#             CrossModalGraphReasoning, TaskGuidedDiffusionPrior
+# ============================================================
+
+nc: 5
+ch: 6
+
+backbone:
+  # 输入处理 + 模态提示注入
+  - [-1, 1, InputProxy, []]                                    # 0
+  - [0, 1, ChannelSplit, [0, 3]]                               # 1 RGB
+  - [0, 1, ChannelSplit, [3, 6]]                               # 2 IR
+  - [[1, 2], 1, ModalityPromptInjection, [16]]                 # 3 MPI
+
+  # YOLOv11 主干
+  - [-1, 1, Conv, [64, 3, 2]]                                  # 4 Stem
+  - [-1, 1, Conv, [128, 3, 2]]                                 # 5
+  - [-1, 2, C3k2, [256, False, 0.25]]                          # 6 P2
+  - [-1, 1, Conv, [256, 3, 2]]                                 # 7
+  - [-1, 2, C3k2, [512, False, 0.25]]                          # 8 P3
+  - [-1, 1, Conv, [512, 3, 2]]                                 # 9
+  - [-1, 2, C3k2, [512, True]]                                 # 10 P4
+  - [-1, 1, Conv, [1024, 3, 2]]                                # 11
+  - [-1, 2, C3k2, [1024, True]]                                # 12
+  - [-1, 1, SPPF, [1024, 5]]                                   # 13
+  - [-1, 2, C2PSA, [1024]]                                     # 14 P5
+
+  # CMGR 跨模态图推理
+  - [8, 1, CrossModalGraphReasoning, [512, 64, 8, 4, 2]]       # 15
+  - [10, 1, CrossModalGraphReasoning, [512, 64, 8, 4, 2]]      # 16
+  - [14, 1, CrossModalGraphReasoning, [1024, 64, 8, 4, 2]]     # 17
+
+  # TGDP 任务引导扩散先验
+  - [15, 1, TaskGuidedDiffusionPrior, [512, 3]]                # 18
+  - [16, 1, TaskGuidedDiffusionPrior, [512, 3]]                # 19
+  - [17, 1, TaskGuidedDiffusionPrior, [1024, 3]]               # 20
+
+head:
+  - [20, 1, nn.Upsample, [None, 2, "nearest"]]                 # 21 P5→P4
+  - [[-1, 19], 1, Concat, [1]]                                 # 22
+  - [-1, 2, C3k2, [512, False]]                                # 23 neck_P4
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]                 # 24 P4→P3
+  - [[-1, 18], 1, Concat, [1]]                                 # 25
+  - [-1, 2, C3k2, [256, False]]                                # 26 neck_P3
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]                 # 27 P3→P2
+  - [[-1, 6], 1, Concat, [1]]                                  # 28
+  - [-1, 2, C3k2, [128, False]]                                # 29 neck_P2
+
+  - [-1, 1, Conv, [128, 3, 2]]                                 # 30 P2→P3
+  - [[-1, 26], 1, Concat, [1]]                                 # 31
+  - [-1, 2, C3k2, [256, False]]                                # 32 pan_P3
+
+  - [-1, 1, Conv, [256, 3, 2]]                                 # 33 P3→P4
+  - [[-1, 23], 1, Concat, [1]]                                 # 34
+  - [-1, 2, C3k2, [512, False]]                                # 35 pan_P4
+
+  - [-1, 1, Conv, [512, 3, 2]]                                 # 36 P4→P5
+  - [[-1, 20], 1, Concat, [1]]                                 # 37
+  - [-1, 2, C3k2, [1024, True]]                                # 38 pan_P5
+
+  - [[29, 32, 35, 38], 1, Detect, [nc]]                        # 39 Detect

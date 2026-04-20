@@ -1,0 +1,93 @@
+
+# Parameters P2 + Backbone注入
+nc: 80  # number of classes
+scales: # model compound scaling constants
+  n: [0.33, 0.25, 1024]
+  s: [0.33, 0.50, 1024]
+  m: [0.67, 0.75, 768]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.25, 512]
+
+# YOLOv8 backbone with SAGE at P3
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]           # 0-P1/2
+  - [-1, 1, EGConv, [128, 3, 2]]        # 1-P2/4
+  - [-1, 3, C2f, [128, True]]           # 2-P2/4 feature
+
+  - [-1, 1, EGConv, [256, 3, 2]]        # 3-P3/8
+  - [-1, 6, C2f, [256, True]]           # 4-P3/8 feature
+  - [-1, 1, SAGE, [8, 0.7]]             # 5-P3/8 attention
+
+  - [-1, 1, EGConv, [512, 3, 2]]        # 6-P4/16
+  - [-1, 6, C2f, [512, True]]           # 7-P4/16 feature
+
+  - [-1, 1, EGConv, [1024, 3, 2]]       # 8-P5/32
+  - [-1, 3, C2f, [1024, True]]          # 9-P5/32 feature
+  - [-1, 1, SPPF, [1024, 5]]            # 10-P5/32 enhanced
+
+# Dual-Path Progressive Injection Head
+head:
+  # ============ FPN 上采样路径 ============
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 11: P5→P4
+  - [[-1, 7], 1, Concat, [1]]                   # 12: cat backbone P4
+  - [-1, 3, C2f, [512]]                         # 13: P4/16 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 14: P4→P3
+  - [[-1, 5], 1, Concat, [1]]                   # 15: cat backbone P3 (with SAGE)
+  - [-1, 3, C2f, [256]]                         # 16: P3/8 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 17: P3→P2
+  - [[-1, 2], 1, Concat, [1]]                   # 18: cat backbone P2
+  - [-1, 3, C2f, [128]]                         # 19: P2/4 fused
+
+  # ============ P2渐进式下采样分支 ============
+  - [2, 1, Conv, [128, 1, 1]]                   # 20: P2 enhanced
+  - [-1, 1, EGConv, [128, 3, 2]]                # 21: P2→P3 scale (80×80)
+  - [-1, 1, EGConv, [128, 3, 2]]                # 22: P2→P4 scale (40×40)
+  - [-1, 1, EGConv, [128, 3, 2]]                # 23: P2→P5 scale (20×20)
+
+  # ============ 原始Backbone特征增强分支 ============
+  - [5, 1, Conv, [128, 1, 1]]                   # 24: Backbone P3 (带SAGE) → 128通道
+  - [7, 1, Conv, [128, 1, 1]]                   # 25: Backbone P4 → 128通道
+  - [10, 1, Conv, [128, 1, 1]]                  # 26: Backbone P5 (带SPPF) → 128通道
+
+  # ============ PAN 双路径渐进式注入 ============
+
+  # Stage 1: P3融合 (P2细节 + Backbone语义)
+  - [19, 1, EGConv, [128, 3, 2]]                # 27: FPN-P2 downsample (80×80)
+  - [[-1, 16, 21, 24], 1, Concat, [1]]          # 28: cat(PAN-P2, FPN-P3, P2-enh, P3-backbone)
+  - [-1, 3, C2f, [256]]                         # 29: P3/8 final (双路径第①次注入)
+
+  # Stage 2: P4融合 (P2细节 + Backbone语义)
+  - [-1, 1, EGConv, [256, 3, 2]]                # 30: P3→P4 downsample (40×40)
+  - [[-1, 13, 22, 25], 1, Concat, [1]]          # 31: cat(PAN-P3, FPN-P4, P2-enh, P4-backbone)
+  - [-1, 3, C2f, [512]]                         # 32: P4/16 final (双路径第②次注入)
+
+  # Stage 3: P5融合 (P2细节 + Backbone语义)
+  - [-1, 1, EGConv, [512, 3, 2]]                # 33: P4→P5 downsample (20×20)
+  - [[-1, 10, 23, 26], 1, Concat, [1]]          # 34: cat(PAN-P4, FPN-P5, P2-enh, P5-backbone)
+  - [-1, 3, C2f, [1024]]                        # 35: P5/32 final (双路径第③次注入)
+
+  # ============ Detect Head ============
+  - [[19, 29, 32, 35], 1, Detect_DyHead, [nc, 128, 1]]  # 36: Detect (P2, P3, P4, P5)
+
+
+#Validating runs/train/exp_EGConv_Vis_P1+P2+Backbone_In/weights/best.pt...
+#Ultralytics YOLOv8.2.50 🚀 Python-3.11.10 torch-2.4.0+cu121 CUDA:0 (NVIDIA GeForce RTX 4090, 48646MiB)
+#YOLOv81015_P1+P2+Backbone_in summary (fused): 370 layers, 3345376 parameters, 0 gradients, 19.6 GFLOPs
+#                 Class     Images  Instances      Box(P          R      mAP50  mAP50-95): 100%|██████████| 28/28 [00:14<00:00,  1.92it/s]
+#                   all        548      38759      0.513      0.395      0.412      0.246
+#            pedestrian        520       8844       0.55      0.439      0.471      0.222
+#                people        482       5125      0.553       0.36      0.398      0.162
+#               bicycle        364       1287      0.348      0.178      0.164     0.0736
+#                   car        515      14064      0.709      0.805      0.825      0.586
+#                   van        421       1975      0.549       0.45       0.47      0.335
+#                 truck        266        750      0.486      0.312      0.338      0.224
+#              tricycle        337       1045      0.447      0.263      0.275      0.152
+#       awning-tricycle        220        532      0.334      0.173      0.181      0.114
+#                   bus        131        251       0.56      0.494      0.497      0.354
+#                 motor        485       4886      0.593      0.471      0.501      0.232
+#Speed: 0.1ms preprocess, 4.1ms inference, 0.0ms loss, 8.0ms postprocess per image
+#Results saved to runs/train/exp_EGConv_Vis_P1+P2+Backbone_In
+#进程已结束,退出代码-1

@@ -1,0 +1,166 @@
+
+##############################方案A：P1仅注入P3（最轻量，推荐小目标场景）######################
+# Parameters
+#nc: 80  # number of classes
+#scales: # model compound scaling constants
+#  n: [0.33, 0.25, 1024]
+#  s: [0.33, 0.50, 1024]
+#  m: [0.67, 0.75, 768]
+#  l: [1.00, 1.00, 512]
+#  x: [1.00, 1.25, 512]
+#
+## Lightweight Variant A: P1 injection only at P3
+#backbone:
+#  # [from, repeats, module, args]
+#  - [-1, 1, Conv, [64, 3, 2]]           # 0-P1/2
+#  - [-1, 1, EGConv, [128, 3, 2]]        # 1-P2/4
+#  - [-1, 3, C2f, [128, True]]           # 2-P2/4 feature
+#
+#  - [-1, 1, EGConv, [256, 3, 2]]        # 3-P3/8
+#  - [-1, 6, C2f, [256, True]]           # 4-P3/8 feature
+#  - [-1, 1, SAGE, [8, 0.7]]             # 5-P3/8 attention
+#
+#  - [-1, 1, EGConv, [512, 3, 2]]        # 6-P4/16
+#  - [-1, 6, C2f, [512, True]]           # 7-P4/16 feature
+#
+#  - [-1, 1, EGConv, [1024, 3, 2]]       # 8-P5/32
+#  - [-1, 3, C2f, [1024, True]]          # 9-P5/32 feature
+#  - [-1, 1, SPPF, [1024, 5]]            # 10-P5/32 enhanced
+#
+#head:
+#  # ============ FPN 上采样路径 ============
+#  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 11: P5→P4
+#  - [[-1, 7], 1, Concat, [1]]                   # 12: cat backbone P4
+#  - [-1, 3, C2f, [512]]                         # 13: P4/16 fused
+#
+#  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 14: P4→P3
+#  - [[-1, 5], 1, Concat, [1]]                   # 15: cat backbone P3
+#  - [-1, 3, C2f, [256]]                         # 16: P3/8 fused
+#
+#  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 17: P3→P2
+#  - [[-1, 2], 1, Concat, [1]]                   # 18: cat backbone P2
+#  - [-1, 3, C2f, [128]]                         # 19: P2/4 fused
+#
+#  # ============ P1注入分支（仅到P3）============
+#  - [0, 1, Conv, [64, 1, 1]]                    # 20: P1 enhanced
+#  - [-1, 1, EGConv, [64, 3, 2]]                 # 21: P1→P2 scale
+#  - [-1, 1, EGConv, [64, 3, 2]]                 # 22: P1→P3 scale (80×80) ← 仅此注入
+#
+#  # ============ P2注入分支（全路径）============
+#  - [2, 1, Conv, [128, 1, 1]]                   # 23: P2 enhanced
+#  - [-1, 1, EGConv, [128, 3, 2]]                # 24: P2→P3 scale
+#  - [-1, 1, EGConv, [128, 3, 2]]                # 25: P2→P4 scale
+#  - [-1, 1, EGConv, [128, 3, 2]]                # 26: P2→P5 scale
+#
+#  # ============ Backbone注入分支 ============
+#  - [5, 1, Conv, [128, 1, 1]]                   # 27: Backbone P3 → 128
+#  - [7, 1, Conv, [128, 1, 1]]                   # 28: Backbone P4 → 128
+#  - [10, 1, Conv, [128, 1, 1]]                  # 29: Backbone P5 → 128
+#
+#  # ============ PAN 选择性注入 ============
+#
+#  # Stage 1: P3融合 (P1+P2+Backbone三路径)
+#  - [19, 1, EGConv, [128, 3, 2]]                # 30: FPN-P2 downsample
+#  - [[-1, 16, 22, 24, 27], 1, Concat, [1]]      # 31: cat(PAN-P2, FPN-P3, P1, P2, P3-bb) [128+256+64+128+128=704]
+#  - [-1, 3, C2f, [256]]                         # 32: P3/8 final
+#
+#  # Stage 2: P4融合 (P2+Backbone双路径，无P1)
+#  - [-1, 1, EGConv, [256, 3, 2]]                # 33: P3→P4 downsample
+#  - [[-1, 13, 25, 28], 1, Concat, [1]]          # 34: cat(PAN-P3, FPN-P4, P2, P4-bb) [256+512+128+128=1024]
+#  - [-1, 3, C2f, [512]]                         # 35: P4/16 final
+#
+#  # Stage 3: P5融合 (P2+Backbone双路径，无P1)
+#  - [-1, 1, EGConv, [512, 3, 2]]                # 36: P4→P5 downsample
+#  - [[-1, 10, 26, 29], 1, Concat, [1]]          # 37: cat(PAN-P4, FPN-P5, P2, P5-bb) [512+1024+128+128=1792]
+#  - [-1, 3, C2f, [1024]]                        # 38: P5/32 final
+#
+#  # ============ Detect Head ============
+#  - [[19, 32, 35, 38], 1, Detect_DyHead, [nc, 128, 1]]  # 39: Detect
+
+##############################方案A：P1仅注入P3（最轻量，推荐小目标场景）######################
+
+
+
+
+
+
+
+##############################方案C：自适应通道注入######################
+
+# Parameters
+nc: 80
+scales:
+  n: [0.33, 0.25, 1024]
+  s: [0.33, 0.50, 1024]
+  m: [0.67, 0.75, 768]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.25, 512]
+
+# Lightweight Variant C: Adaptive channel injection
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]           # 0-P1/2
+  - [-1, 1, EGConv, [128, 3, 2]]        # 1-P2/4
+  - [-1, 3, C2f, [128, True]]           # 2-P2/4 feature
+
+  - [-1, 1, EGConv, [256, 3, 2]]        # 3-P3/8
+  - [-1, 6, C2f, [256, True]]           # 4-P3/8 feature
+  - [-1, 1, SAGE, [8, 0.7]]             # 5-P3/8 attention
+
+  - [-1, 1, EGConv, [512, 3, 2]]        # 6-P4/16
+  - [-1, 6, C2f, [512, True]]           # 7-P4/16 feature
+
+  - [-1, 1, EGConv, [1024, 3, 2]]       # 8-P5/32
+  - [-1, 3, C2f, [1024, True]]          # 9-P5/32 feature
+  - [-1, 1, SPPF, [1024, 5]]            # 10-P5/32 enhanced
+
+head:
+  # ============ FPN 上采样路径 ============
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 11: P5→P4
+  - [[-1, 7], 1, Concat, [1]]                   # 12: cat backbone P4
+  - [-1, 3, C2f, [512]]                         # 13: P4/16 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 14: P4→P3
+  - [[-1, 5], 1, Concat, [1]]                   # 15: cat backbone P3
+  - [-1, 3, C2f, [256]]                         # 16: P3/8 fused
+
+  - [-1, 1, nn.Upsample, [None, 2, 'nearest']]  # 17: P3→P2
+  - [[-1, 2], 1, Concat, [1]]                   # 18: cat backbone P2
+  - [-1, 3, C2f, [128]]                         # 19: P2/4 fused
+
+  # ============ P1轻量注入（仅32通道）============
+  - [0, 1, Conv, [32, 1, 1]]                    # 20: P1 ultra-light (64→32通道)
+  - [-1, 1, EGConv, [32, 3, 2]]                 # 21: P1→P2 scale
+  - [-1, 1, EGConv, [32, 3, 2]]                 # 22: P1→P3 scale
+
+  # ============ P2标准注入（96通道）============
+  - [2, 1, Conv, [96, 1, 1]]                    # 23: P2 reduced (128→96通道)
+  - [-1, 1, EGConv, [96, 3, 2]]                 # 24: P2→P3 scale
+  - [-1, 1, EGConv, [96, 3, 2]]                 # 25: P2→P4 scale
+  - [-1, 1, EGConv, [96, 3, 2]]                 # 26: P2→P5 scale
+
+  # ============ Backbone轻量注入（96通道）============
+  - [5, 1, Conv, [96, 1, 1]]                    # 27: Backbone P3 → 96
+  - [7, 1, Conv, [96, 1, 1]]                    # 28: Backbone P4 → 96
+  - [10, 1, Conv, [96, 1, 1]]                   # 29: Backbone P5 → 96
+
+  # ============ PAN 自适应注入 ============
+
+  # Stage 1: P3融合 (P1+P2+Backbone，总通道控制在640)
+  - [19, 1, EGConv, [128, 3, 2]]                # 30: FPN-P2 downsample
+  - [[-1, 16, 22, 24, 27], 1, Concat, [1]]      # 31: cat(PAN-P2, FPN-P3, P1, P2, P3-bb) [128+256+32+96+96=608]
+  - [-1, 3, C2f, [256]]                         # 32: P3/8 final
+
+  # Stage 2: P4融合 (P2+Backbone，无P1)
+  - [-1, 1, EGConv, [256, 3, 2]]                # 33: P3→P4 downsample
+  - [[-1, 13, 25, 28], 1, Concat, [1]]          # 34: cat(PAN-P3, FPN-P4, P2, P4-bb) [256+512+96+96=960]
+  - [-1, 3, C2f, [512]]                         # 35: P4/16 final
+
+  # Stage 3: P5融合 (P2+Backbone，无P1)
+  - [-1, 1, EGConv, [512, 3, 2]]                # 36: P4→P5 downsample
+  - [[-1, 10, 26, 29], 1, Concat, [1]]          # 37: cat(PAN-P4, FPN-P5, P2, P5-bb) [512+1024+96+96=1728]
+  - [-1, 3, C2f, [1024]]                        # 38: P5/32 final
+
+  # ============ Detect Head ============
+  - [[19, 32, 35, 38], 1, Detect_DyHead, [nc, 128, 1]]  # 39: Detect
+##############################方案C：自适应通道注入######################
